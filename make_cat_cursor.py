@@ -447,6 +447,8 @@ def gen_color(name):
             imgs = [(fn(s, t), int(s * hs[0]), int(s * hs[1])) for s in ANI_SIZES]
             curs.append(build_cur_bytes(imgs))
         build_ani(curs, os.path.join(outdir, fname), jiff)
+    # preview face used by the app's logo for this colour
+    draw_cat(128).save(os.path.join(outdir, "preview.png"))
     print("built", outdir)
 
 

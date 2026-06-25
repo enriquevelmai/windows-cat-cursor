@@ -201,6 +201,16 @@ class CatCursorApp
         return Image.FromStream(new MemoryStream(File.ReadAllBytes(path)));
     }
 
+    // Standalone preview face for a colour (from the embedded pack).
+    static Image ColorPreview(string colour)
+    {
+        byte[] b;
+        if (!ASSETS.TryGetValue(colour + "/preview.png", out b)) return null;
+        using (MemoryStream ms = new MemoryStream(b))
+        using (Image img = Image.FromStream(ms))
+            return new Bitmap(img);
+    }
+
     // ---- UI -----------------------------------------------------------------
 
     [STAThread]
@@ -229,8 +239,6 @@ class CatCursorApp
         logo.Size = new Size(48, 48);
         logo.Location = new Point(300, 8);
         logo.SizeMode = PictureBoxSizeMode.Zoom;
-        try { logo.Image = Image.FromStream(new MemoryStream(Convert.FromBase64String(PREVIEW_B64))); }
-        catch { }
         f.Controls.Add(logo);
 
         Label lblColor = new Label();
@@ -246,8 +254,16 @@ class CatCursorApp
         cmbColor.Size = new Size(170, 26);
         cmbColor.Location = new Point(96, 52);
         cmbColor.Items.AddRange(COLOR_ORDER);
-        cmbColor.SelectedIndex = 0;
         f.Controls.Add(cmbColor);
+
+        // Show the matching cat face in the logo, and update it when the colour changes.
+        cmbColor.SelectedIndexChanged += delegate
+        {
+            Image old = logo.Image;
+            logo.Image = ColorPreview(cmbColor.SelectedItem.ToString());
+            if (old != null) old.Dispose();
+        };
+        cmbColor.SelectedIndex = 0;
 
         Button apply = new Button();
         apply.Text = "Turn my cursors into cats";
