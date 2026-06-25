@@ -1,0 +1,8 @@
+# Generated at build time
+CatCursor.cs
+cursors.zip
+
+# OS / editor cruft
+Thumbs.db
+desktop.ini
+.vs/
