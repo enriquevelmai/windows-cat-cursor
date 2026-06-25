@@ -452,26 +452,59 @@ def gen_color(name):
     print("built", outdir)
 
 
+def make_gallery():
+    """A labelled grid of every cursor (orange) for the README."""
+    set_palette("Orange")
+    items = [
+        ("Normal", draw_cat(72)), ("Link", draw_paw(72)), ("Text", draw_ibeam(72)),
+        ("Busy", draw_busy(72)), ("Working", draw_working(72)), ("Help", draw_help(72)),
+        ("Unavailable", draw_no(72)), ("Resize ↕", draw_resize(72, 90)),
+        ("Resize ↔", draw_resize(72, 0)), ("Resize NWSE", draw_resize(72, 45)),
+        ("Resize NESW", draw_resize(72, -45)), ("Move", draw_move(72)),
+        ("Precision", draw_cross(72)), ("Pen", draw_pen(72)), ("Up", draw_up(72)),
+    ]
+    cols, cw, ch = 5, 150, 120
+    rows = (len(items) + cols - 1) // cols
+    bg = (250, 244, 236, 255)
+    sheet = Image.new("RGBA", (cols * cw, rows * ch), bg)
+    d = ImageDraw.Draw(sheet)
+    f = _font(15)
+    for i, (label, im) in enumerate(items):
+        r, c = divmod(i, cols)
+        x, y = c * cw, r * ch
+        sheet.paste(im, (x + (cw - 72) // 2, y + 12), im)
+        d.text((x + cw / 2, y + 100), label, fill=(70, 55, 40, 255), font=f, anchor="mm")
+    os.makedirs("docs", exist_ok=True)
+    sheet.convert("RGB").save(os.path.join("docs", "gallery.png"))
+    print("built docs/gallery.png")
+
+
 def main():
     for c in COLORS:
         gen_color(c)
 
-    # GUI logo preview (orange face)
+    # GUI logo preview + Windows app icon (orange face)
     set_palette("Orange")
     draw_cat(128).save("cat_preview_128.png")
+    draw_cat(256).save(os.path.join("build", "icon.ico"),
+                       sizes=[(16, 16), (24, 24), (32, 32), (48, 48),
+                              (64, 64), (128, 128), (256, 256)])
+    print("built build/icon.ico")
 
     # colour preview montage
     cell = 130
-    sheet = Image.new("RGBA", (cell * len(COLORS), cell + 20), (255, 255, 255, 255))
+    sheet = Image.new("RGBA", (cell * len(COLORS), cell + 20), (250, 244, 236, 255))
     d = ImageDraw.Draw(sheet)
     f = _font(15)
     for i, c in enumerate(COLORS):
         set_palette(c)
         thumb = draw_cat(104)
         sheet.paste(thumb, (i * cell + 13, 8), thumb)
-        d.text((i * cell + cell / 2, cell + 6), c, fill=(20, 20, 20, 255), font=f, anchor="mm")
-    sheet.save("colors_preview.png")
+        d.text((i * cell + cell / 2, cell + 6), c, fill=(70, 55, 40, 255), font=f, anchor="mm")
+    sheet.convert("RGB").save("colors_preview.png")
     print("built colors_preview.png")
+
+    make_gallery()
 
 
 if __name__ == "__main__":

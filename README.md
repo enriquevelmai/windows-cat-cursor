@@ -1,5 +1,10 @@
 # 🐱 Cat Cursor
 
+[![Release](https://img.shields.io/github/v/release/enriquevelmai/windows-cat-cursor?color=ff9f3f)](https://github.com/enriquevelmai/windows-cat-cursor/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d6)](#)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![No install](https://img.shields.io/badge/install-not%20required-brightgreen)](#%EF%B8%8F-quick-start-for-everyone)
+
 Turn your **entire Windows mouse cursor set** into cats — in five colours, with
 animated loading pointers — or make a cursor out of **any picture you like**.
 
@@ -8,12 +13,17 @@ only changes **your own** Windows user account.
 
 ![Cat colours](colors_preview.png)
 
+> The full themed pointer set:
+
+![Cursor gallery](docs/gallery.png)
+
 ---
 
 ## ⬇️ Quick start (for everyone)
 
-1. Download **[`CatCursor.exe`](CatCursor.exe)** (click the file above, then the
-   download button).
+1. Download **`CatCursor.exe`** from the
+   [**latest release**](https://github.com/enriquevelmai/windows-cat-cursor/releases/latest)
+   (or grab [`CatCursor.exe`](CatCursor.exe) from the file list above).
 2. Double-click it.
 3. Pick a **cat colour**, then click **“Turn my cursors into cats.”**
 4. To go back, click **“Restore normal cursors.”**
@@ -105,9 +115,10 @@ powershell -ExecutionPolicy Bypass -File build_exe.ps1
 
 | File | What it is |
 |---|---|
-| `make_cat_cursor.py` | Draws every cursor (all colours + animations) with Pillow |
+| `make_cat_cursor.py` | Draws every cursor (all colours + animations), the app icon and previews, with Pillow |
 | `CatCursor.template.cs` | The GUI app source (image→cursor converter + UI) |
-| `build_exe.ps1` | Packs the cursors into a zip resource and compiles the exe |
+| `app.manifest` | DPI-awareness, visual styles and `asInvoker` manifest embedded in the exe |
+| `build_exe.ps1` | Packs the cursors into a zip resource and compiles the exe (icon + manifest) |
 | `CursorMaker.cs` | Shared image→`.cur` converter used by `Set-CustomCursor.ps1` |
 | `Apply-CatCursor.ps1` / `Revert-CatCursor.ps1` | Apply / undo a theme |
 | `Set-CustomCursor.ps1` | Turn a picture into a cursor from the command line |

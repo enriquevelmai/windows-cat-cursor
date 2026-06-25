@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -10,12 +11,22 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-// Cat Cursor - themes the whole Windows cursor set as cats, in several colours
-// (with animated busy/loading pointers), and lets you build your OWN cursors
-// from any picture. Self-contained: no install ever needed.
-// All cursor files are embedded as a compressed (zip) resource and read at run time.
+[assembly: AssemblyTitle("Cat Cursor")]
+[assembly: AssemblyProduct("Cat Cursor")]
+[assembly: AssemblyDescription("Turn your Windows cursors into cats - colours, animation, and custom pictures.")]
+[assembly: AssemblyCompany("Cat Cursor")]
+[assembly: AssemblyCopyright("MIT Licensed")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
+
+// Cat Cursor - themes the whole Windows cursor set as cats (five colours, with
+// animated busy/loading pointers) and turns any picture into a cursor.
+// Self-contained: every cursor file is embedded as a compressed resource.
 class CatCursorApp
 {
+    const string VERSION = "1.0.0";
+    const string REPO_URL = "https://github.com/enriquevelmai/windows-cat-cursor";
+
     static readonly string[] COLOR_ORDER = { "Orange", "Black", "Grey", "White", "Siamese" };
 
     // registry role -> file name inside each colour folder (Wait/AppStarting are animated)
@@ -30,12 +41,20 @@ class CatCursorApp
         new[]{"Wait","cat_busy.ani"}, new[]{"AppStarting","cat_working.ani"}
     };
 
+    static readonly string[] ALL_ROLES = {
+        "Arrow","Hand","Help","AppStarting","Wait","IBeam","Crosshair","No",
+        "SizeNS","SizeWE","SizeNWSE","SizeNESW","SizeAll","NWPen","UpArrow"
+    };
+    static readonly int[] SIZES = { 32, 48, 64, 96, 128 };
+
     // Embedded cursor pack: entryFullName ("Orange/cat_cursor.cur") -> bytes.
     static readonly Dictionary<string, byte[]> ASSETS = LoadAssets();
     static Dictionary<string, byte[]> LoadAssets()
     {
         var dict = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-        using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("CatCursor.cursors.zip"))
+        Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("CatCursor.cursors.zip");
+        if (s == null) return dict;
+        using (s)
         using (ZipArchive za = new ZipArchive(s, ZipArchiveMode.Read))
             foreach (ZipArchiveEntry e in za.Entries)
             {
@@ -47,17 +66,11 @@ class CatCursorApp
         return dict;
     }
 
-    const string PREVIEW_B64 = "__PREVIEW_BASE64__";
-
-    static readonly string[] ALL_ROLES = {
-        "Arrow","Hand","Help","AppStarting","Wait","IBeam","Crosshair","No",
-        "SizeNS","SizeWE","SizeNWSE","SizeNESW","SizeAll","NWPen","UpArrow"
-    };
-    static readonly int[] SIZES = { 32, 48, 64, 96, 128 };
-
     [DllImport("user32.dll", SetLastError = true)]
     static extern bool SystemParametersInfo(uint a, uint b, IntPtr c, uint d);
     static void Refresh() { SystemParametersInfo(0x57, 0, IntPtr.Zero, 0x03); }
+
+    const string CURSOR_KEY = @"Control Panel\Cursors";
 
     static string AssetDir(string sub)
     {
@@ -68,12 +81,12 @@ class CatCursorApp
         return dir;
     }
 
-    // ---- built-in themes ----------------------------------------------------
+    // ---- themes -------------------------------------------------------------
 
     static void ApplyTheme(string colour)
     {
         string dir = AssetDir(colour);
-        using (RegistryKey k = Registry.CurrentUser.OpenSubKey(@"Control Panel\Cursors", true))
+        using (RegistryKey k = Registry.CurrentUser.OpenSubKey(CURSOR_KEY, true))
         {
             foreach (string[] rf in ROLE_FILES)
             {
@@ -90,12 +103,28 @@ class CatCursorApp
 
     static void Revert()
     {
-        using (RegistryKey k = Registry.CurrentUser.OpenSubKey(@"Control Panel\Cursors", true))
+        using (RegistryKey k = Registry.CurrentUser.OpenSubKey(CURSOR_KEY, true))
         {
             foreach (string r in ALL_ROLES) k.SetValue(r, "", RegistryValueKind.String);
             k.SetValue("", "Windows Default", RegistryValueKind.String);
         }
         Refresh();
+    }
+
+    // The colour of the currently-applied cat theme, or null.
+    static string CurrentColour()
+    {
+        try
+        {
+            using (RegistryKey k = Registry.CurrentUser.OpenSubKey(CURSOR_KEY))
+            {
+                string v = k == null ? null : k.GetValue("") as string;
+                if (v != null && v.StartsWith("Cat Cursor (") && v.EndsWith(")"))
+                    return v.Substring(12, v.Length - 13);
+            }
+        }
+        catch { }
+        return null;
     }
 
     // ---- custom picture -> cursor -------------------------------------------
@@ -104,7 +133,7 @@ class CatCursorApp
     {
         string dir = AssetDir("custom");
         byte[] cur = BuildCur(img, hxFrac, hyFrac);
-        using (RegistryKey k = Registry.CurrentUser.OpenSubKey(@"Control Panel\Cursors", true))
+        using (RegistryKey k = Registry.CurrentUser.OpenSubKey(CURSOR_KEY, true))
         {
             if (roleKey == "ALL")
             {
@@ -201,7 +230,6 @@ class CatCursorApp
         return Image.FromStream(new MemoryStream(File.ReadAllBytes(path)));
     }
 
-    // Standalone preview face for a colour (from the embedded pack).
     static Image ColorPreview(string colour)
     {
         byte[] b;
@@ -211,6 +239,31 @@ class CatCursorApp
             return new Bitmap(img);
     }
 
+    static Icon AppIcon()
+    {
+        byte[] b;
+        if (!ASSETS.TryGetValue("icon.ico", out b)) return null;
+        using (MemoryStream ms = new MemoryStream(b))
+            return (Icon)new Icon(ms).Clone();
+    }
+
+    // ---- UI helpers ---------------------------------------------------------
+
+    static Button FlatButton(string text, Rectangle r, Color back, Color fore, float size, bool bold)
+    {
+        Button b = new Button();
+        b.Text = text;
+        b.Bounds = r;
+        b.Font = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular);
+        b.BackColor = back;
+        b.ForeColor = fore;
+        b.FlatStyle = FlatStyle.Flat;
+        b.FlatAppearance.BorderColor = Color.FromArgb(220, 210, 198);
+        b.FlatAppearance.BorderSize = back == Color.White ? 1 : 0;
+        b.Cursor = Cursors.Hand;
+        return b;
+    }
+
     // ---- UI -----------------------------------------------------------------
 
     [STAThread]
@@ -218,97 +271,124 @@ class CatCursorApp
     {
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+
         Image[] picked = new Image[1];
+        Color cream = Color.FromArgb(250, 244, 236);
+        Color ink = Color.FromArgb(70, 55, 40);
+        Color orange = Color.FromArgb(255, 160, 55);
+
+        // pre-render small swatches for the colour dropdown
+        Dictionary<string, Image> swatches = new Dictionary<string, Image>();
+        foreach (string c in COLOR_ORDER)
+        {
+            Image p = ColorPreview(c);
+            if (p != null) { swatches[c] = new Bitmap(p, 16, 16); p.Dispose(); }
+        }
 
         Form f = new Form();
         f.Text = "Cat Cursor";
-        f.ClientSize = new Size(364, 566);
+        f.ClientSize = new Size(380, 600);
         f.FormBorderStyle = FormBorderStyle.FixedSingle;
         f.MaximizeBox = false;
         f.StartPosition = FormStartPosition.CenterScreen;
-        f.BackColor = Color.FromArgb(250, 244, 236);
+        f.BackColor = cream;
+        f.Font = new Font("Segoe UI", 9F);
+        f.AutoScaleMode = AutoScaleMode.Font;
+        Icon ic = AppIcon();
+        if (ic != null) f.Icon = ic;
 
-        Label title = new Label();
-        title.Text = "Cat Cursor";
-        title.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
-        title.AutoSize = true;
-        title.Location = new Point(18, 12);
-        f.Controls.Add(title);
+        // ---- header ----
+        Panel header = new Panel();
+        header.Bounds = new Rectangle(0, 0, 380, 62);
+        header.BackColor = orange;
+        f.Controls.Add(header);
 
-        PictureBox logo = new PictureBox();
-        logo.Size = new Size(48, 48);
-        logo.Location = new Point(300, 8);
-        logo.SizeMode = PictureBoxSizeMode.Zoom;
-        f.Controls.Add(logo);
+        PictureBox hIcon = new PictureBox();
+        hIcon.Bounds = new Rectangle(16, 9, 44, 44);
+        hIcon.SizeMode = PictureBoxSizeMode.Zoom;
+        header.Controls.Add(hIcon);
 
+        Label hTitle = new Label();
+        hTitle.Text = "Cat Cursor";
+        hTitle.Font = new Font("Segoe UI", 15F, FontStyle.Bold);
+        hTitle.ForeColor = Color.White;
+        hTitle.AutoSize = true;
+        hTitle.Location = new Point(68, 8);
+        header.Controls.Add(hTitle);
+
+        Label hSub = new Label();
+        hSub.Text = "Windows cursor themer";
+        hSub.Font = new Font("Segoe UI", 8.5F);
+        hSub.ForeColor = Color.FromArgb(255, 240, 225);
+        hSub.AutoSize = true;
+        hSub.Location = new Point(70, 36);
+        header.Controls.Add(hSub);
+
+        // ---- theme picker ----
         Label lblColor = new Label();
-        lblColor.Text = "Cat colour:";
-        lblColor.Font = new Font("Segoe UI", 10F);
+        lblColor.Text = "Cat colour";
+        lblColor.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        lblColor.ForeColor = ink;
         lblColor.AutoSize = true;
-        lblColor.Location = new Point(18, 56);
+        lblColor.Location = new Point(18, 78);
         f.Controls.Add(lblColor);
 
         ComboBox cmbColor = new ComboBox();
         cmbColor.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbColor.Font = new Font("Segoe UI", 10F);
-        cmbColor.Size = new Size(170, 26);
-        cmbColor.Location = new Point(96, 52);
+        cmbColor.DrawMode = DrawMode.OwnerDrawFixed;
+        cmbColor.ItemHeight = 22;
+        cmbColor.Bounds = new Rectangle(100, 74, 262, 26);
         cmbColor.Items.AddRange(COLOR_ORDER);
+        cmbColor.DrawItem += delegate (object s, DrawItemEventArgs e)
+        {
+            e.DrawBackground();
+            if (e.Index >= 0)
+            {
+                string name = cmbColor.Items[e.Index].ToString();
+                Image sw;
+                if (swatches.TryGetValue(name, out sw))
+                    e.Graphics.DrawImage(sw, e.Bounds.Left + 4, e.Bounds.Top + (e.Bounds.Height - 16) / 2, 16, 16);
+                using (SolidBrush br = new SolidBrush(e.ForeColor))
+                    e.Graphics.DrawString(name, cmbColor.Font, br, e.Bounds.Left + 26, e.Bounds.Top + 3);
+            }
+            e.DrawFocusRectangle();
+        };
         f.Controls.Add(cmbColor);
 
-        // Show the matching cat face in the logo, and update it when the colour changes.
-        cmbColor.SelectedIndexChanged += delegate
-        {
-            Image old = logo.Image;
-            logo.Image = ColorPreview(cmbColor.SelectedItem.ToString());
-            if (old != null) old.Dispose();
-        };
-        cmbColor.SelectedIndex = 0;
-
-        Button apply = new Button();
-        apply.Text = "Turn my cursors into cats";
-        apply.Size = new Size(326, 42);
-        apply.Location = new Point(18, 86);
-        apply.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
-        apply.BackColor = Color.FromArgb(255, 165, 60);
-        apply.ForeColor = Color.White;
-        apply.FlatStyle = FlatStyle.Flat;
-        apply.FlatAppearance.BorderSize = 0;
+        Button apply = FlatButton("Turn my cursors into cats", new Rectangle(18, 108, 344, 44), orange, Color.White, 11.5F, true);
         f.Controls.Add(apply);
 
-        Button revert = new Button();
-        revert.Text = "Restore normal cursors";
-        revert.Size = new Size(326, 34);
-        revert.Location = new Point(18, 132);
-        revert.Font = new Font("Segoe UI", 10F);
-        revert.FlatStyle = FlatStyle.Flat;
+        Button revert = FlatButton("Restore normal cursors", new Rectangle(18, 158, 344, 32), Color.White, ink, 10F, false);
         f.Controls.Add(revert);
 
+        Label lblCurrent = new Label();
+        lblCurrent.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
+        lblCurrent.ForeColor = Color.FromArgb(130, 115, 100);
+        lblCurrent.AutoSize = true;
+        lblCurrent.Location = new Point(20, 196);
+        f.Controls.Add(lblCurrent);
+
+        // ---- custom picture ----
         GroupBox grp = new GroupBox();
         grp.Text = "Make your own cursor from a picture";
         grp.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        grp.Location = new Point(18, 176);
-        grp.Size = new Size(326, 352);
+        grp.ForeColor = ink;
+        grp.Bounds = new Rectangle(18, 218, 344, 318);
         f.Controls.Add(grp);
 
         Label hint = new Label();
-        hint.Text = "Tip: PNG with a transparent background looks best.";
+        hint.Text = "Tip: a PNG with a transparent background looks best.";
         hint.Font = new Font("Segoe UI", 8.5F);
-        hint.ForeColor = Color.FromArgb(120, 105, 90);
+        hint.ForeColor = Color.FromArgb(130, 115, 100);
         hint.AutoSize = true;
         hint.Location = new Point(12, 22);
         grp.Controls.Add(hint);
 
-        Button choose = new Button();
-        choose.Text = "Choose picture...";
-        choose.Size = new Size(160, 34);
-        choose.Location = new Point(12, 46);
-        choose.Font = new Font("Segoe UI", 9.5F);
+        Button choose = FlatButton("Choose picture...", new Rectangle(12, 46, 160, 32), Color.White, ink, 9.5F, false);
         grp.Controls.Add(choose);
 
         PictureBox prev = new PictureBox();
-        prev.Size = new Size(118, 118);
-        prev.Location = new Point(192, 42);
+        prev.Bounds = new Rectangle(208, 40, 120, 120);
         prev.SizeMode = PictureBoxSizeMode.Zoom;
         prev.BorderStyle = BorderStyle.FixedSingle;
         prev.BackColor = Color.White;
@@ -318,14 +398,12 @@ class CatCursorApp
         lblRole.Text = "Replace which pointer?";
         lblRole.Font = new Font("Segoe UI", 9F);
         lblRole.AutoSize = true;
-        lblRole.Location = new Point(12, 170);
+        lblRole.Location = new Point(12, 168);
         grp.Controls.Add(lblRole);
 
         ComboBox cmbRole = new ComboBox();
         cmbRole.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbRole.Size = new Size(302, 24);
-        cmbRole.Location = new Point(12, 190);
-        cmbRole.Font = new Font("Segoe UI", 9.5F);
+        cmbRole.Bounds = new Rectangle(12, 188, 320, 24);
         string[] roleNames = { "Normal pointer", "Link / hover", "Text cursor",
                                "Busy / loading", "Help", "Move",
                                "Unavailable", "Every pointer (all of them)" };
@@ -338,53 +416,74 @@ class CatCursorApp
         lblHot.Text = "Click point (the exact pixel that clicks):";
         lblHot.Font = new Font("Segoe UI", 9F);
         lblHot.AutoSize = true;
-        lblHot.Location = new Point(12, 222);
+        lblHot.Location = new Point(12, 220);
         grp.Controls.Add(lblHot);
 
         ComboBox cmbHot = new ComboBox();
         cmbHot.DropDownStyle = ComboBoxStyle.DropDownList;
-        cmbHot.Size = new Size(302, 24);
-        cmbHot.Location = new Point(12, 242);
-        cmbHot.Font = new Font("Segoe UI", 9.5F);
+        cmbHot.Bounds = new Rectangle(12, 240, 320, 24);
         string[] hotNames = { "Top-left (like a normal arrow)", "Top-center", "Center" };
         double[][] hotFrac = { new double[] { 0, 0 }, new double[] { 0.5, 0 }, new double[] { 0.5, 0.5 } };
         cmbHot.Items.AddRange(hotNames);
         cmbHot.SelectedIndex = 0;
         grp.Controls.Add(cmbHot);
 
-        Button use = new Button();
-        use.Text = "Use this picture as my cursor";
-        use.Size = new Size(302, 40);
-        use.Location = new Point(12, 282);
-        use.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
-        use.BackColor = Color.FromArgb(120, 180, 90);
-        use.ForeColor = Color.White;
-        use.FlatStyle = FlatStyle.Flat;
-        use.FlatAppearance.BorderSize = 0;
+        Button use = FlatButton("Use this picture as my cursor", new Rectangle(12, 274, 320, 38), Color.FromArgb(120, 180, 90), Color.White, 10.5F, true);
         grp.Controls.Add(use);
 
+        // ---- footer ----
         Label status = new Label();
-        status.Text = "Pick a colour and click the orange button.";
         status.AutoSize = false;
         status.TextAlign = ContentAlignment.MiddleCenter;
-        status.Size = new Size(344, 26);
-        status.Location = new Point(10, 534);
-        status.ForeColor = Color.FromArgb(90, 80, 70);
+        status.Bounds = new Rectangle(12, 544, 356, 20);
+        status.ForeColor = ink;
         f.Controls.Add(status);
+
+        LinkLabel link = new LinkLabel();
+        link.Text = "View on GitHub";
+        link.Font = new Font("Segoe UI", 8.5F);
+        link.LinkColor = Color.FromArgb(190, 120, 40);
+        link.AutoSize = true;
+        link.Location = new Point(18, 572);
+        link.LinkClicked += delegate { try { Process.Start(REPO_URL); } catch { } };
+        f.Controls.Add(link);
+
+        Label lblVer = new Label();
+        lblVer.Text = "v" + VERSION;
+        lblVer.Font = new Font("Segoe UI", 8.5F);
+        lblVer.ForeColor = Color.FromArgb(150, 135, 120);
+        lblVer.AutoSize = false;
+        lblVer.TextAlign = ContentAlignment.MiddleRight;
+        lblVer.Bounds = new Rectangle(262, 570, 100, 18);
+        f.Controls.Add(lblVer);
+
+        // ---- behaviour ----
+        cmbColor.SelectedIndexChanged += delegate
+        {
+            Image old = hIcon.Image;
+            hIcon.Image = ColorPreview(cmbColor.SelectedItem.ToString());
+            if (old != null) old.Dispose();
+        };
 
         apply.Click += delegate
         {
             try
             {
-                string c = cmbColor.SelectedItem == null ? COLOR_ORDER[0] : cmbColor.SelectedItem.ToString();
+                string c = cmbColor.SelectedItem.ToString();
                 ApplyTheme(c);
+                lblCurrent.Text = "Currently applied: " + c + " cats";
                 status.Text = "Done! " + c + " cats applied. \U0001F431";
             }
             catch (Exception ex) { status.Text = "Error: " + ex.Message; }
         };
         revert.Click += delegate
         {
-            try { Revert(); status.Text = "Default cursors restored."; }
+            try
+            {
+                Revert();
+                lblCurrent.Text = "No cat theme applied.";
+                status.Text = "Default Windows cursors restored.";
+            }
             catch (Exception ex) { status.Text = "Error: " + ex.Message; }
         };
         choose.Click += delegate
@@ -418,6 +517,24 @@ class CatCursorApp
             }
             catch (Exception ex) { status.Text = "Error: " + ex.Message; }
         };
+
+        // initial state: reflect whatever theme is currently applied
+        string current = CurrentColour();
+        int idx = current == null ? 0 : Array.IndexOf(COLOR_ORDER, current);
+        cmbColor.SelectedIndex = idx < 0 ? 0 : idx;
+        if (current != null)
+        {
+            lblCurrent.Text = "Currently applied: " + current + " cats";
+            status.Text = "A cat theme is active. Pick a colour or restore defaults.";
+        }
+        else
+        {
+            lblCurrent.Text = "No cat theme applied yet.";
+            status.Text = "Pick a colour and click the orange button.";
+        }
+
+        if (ASSETS.Count == 0)
+            status.Text = "Error: cursor pack missing from this build.";
 
         Application.Run(f);
     }
