@@ -1,9 +1,13 @@
-# Applies a cat cursor theme in the chosen colour (current user only).
-#   .\Apply-CatCursor.ps1                 # Orange (default)
+# Applies a cat cursor theme in the chosen coat (current user only).
+#   .\Apply-CatCursor.ps1                        # Orange, cat-face pointer (default)
 #   .\Apply-CatCursor.ps1 -Color Black
-# Colours: Orange Black Grey White Siamese.  Undo with Revert-CatCursor.ps1.
+#   .\Apply-CatCursor.ps1 -Color Calico -Style Arrow   # classic arrow with a small cat
+# Coats: Orange Black Grey White Siamese Calico Tuxedo.  Undo with Revert-CatCursor.ps1.
 
-param([ValidateSet('Orange','Black','Grey','White','Siamese')] [string] $Color = 'Orange')
+param(
+    [ValidateSet('Orange','Black','Grey','White','Siamese','Calico','Tuxedo')] [string] $Color = 'Orange',
+    [ValidateSet('Face','Arrow')] [string] $Style = 'Face'
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -11,8 +15,9 @@ $srcDir = Join-Path $PSScriptRoot "build\$Color"
 if (-not (Test-Path $srcDir)) { throw "build\$Color not found - run 'python make_cat_cursor.py' first." }
 
 # registry role -> file (Wait/AppStarting are animated .ani)
+$arrowFile = if ($Style -eq 'Arrow') { 'cat_arrow.cur' } else { 'cat_cursor.cur' }
 $map = [ordered]@{
-    Arrow='cat_cursor.cur'; Hand='cat_paw.cur'; Help='cat_help.cur';
+    Arrow=$arrowFile; Hand='cat_paw.cur'; Help='cat_help.cur';
     AppStarting='cat_working.ani'; Wait='cat_busy.ani'; IBeam='cat_text.cur';
     Crosshair='cat_cross.cur'; No='cat_no.cur'; SizeNS='cat_ns.cur';
     SizeWE='cat_we.cur'; SizeNWSE='cat_nwse.cur'; SizeNESW='cat_nesw.cur';
@@ -27,10 +32,14 @@ foreach ($role in $map.Keys) {
 }
 Set-ItemProperty -Path $key -Name '(Default)' -Value "Cat Cursor ($Color)"
 
+# Remember the pointer style so the app shows the same choice.
+New-Item -Path 'HKCU:\Software\CatCursor' -Force | Out-Null
+Set-ItemProperty -Path 'HKCU:\Software\CatCursor' -Name 'PointerStyle' -Value $(if ($Style -eq 'Arrow') { 1 } else { 0 }) -Type DWord
+
 Add-Type -Namespace Win32 -Name Cur -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError=true)]
 public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, System.IntPtr pvParam, uint fWinIni);
 '@
 [Win32.Cur]::SystemParametersInfo(0x57, 0, [System.IntPtr]::Zero, 0x03) | Out-Null
 
-Write-Host "$Color cat cursor theme applied. (Run Revert-CatCursor.ps1 to undo.)"
+Write-Host "$Color cat cursor theme applied ($Style pointer). (Run Revert-CatCursor.ps1 to undo.)"

@@ -6,35 +6,46 @@ Turns your ENTIRE Windows mouse cursor set into cats.
 HOW TO USE
 ----------
 1. Double-click CatCursor.exe
-2. Click "Turn my cursors into cats"  -> all your pointers become cats
-3. Click "Restore normal cursors"     -> back to the normal Windows cursors
+2. Pick a cat (Orange, Black, Grey, White, Siamese, Calico or Tuxedo)
+3. Hover the pointers in the preview to try them for real
+4. Click "Apply ... cats"             -> all your pointers become cats
+5. Click "Restore Windows cursors"    -> back to the normal Windows cursors
 
 The change is instant (no restart needed) and only affects your own
 Windows user account.
 
+EXTRAS
+------
+  Normal pointer: choose "Cat face" (its pointy ear is the tip) or
+                  "Arrow + cat" (a classic arrow with a small cat on it).
+  Size:           Normal / Large / Larger / Huge - same as Windows Settings.
+  The app follows your Windows light/dark theme.
+
 WHAT YOU GET (every pointer is themed)
 --------------------------------------
-  Normal pointer ....... cat face
+  Normal pointer ....... cat face (or arrow + cat)
   Hovering a link ...... cat paw
   Text cursor .......... I-beam with cat ears
-  Busy / loading ....... sleeping cat (z z z)
-  Working in background  cat face + spinner
+  Busy / loading ....... sleeping cat (z z z), animated
+  Working in background  cat face + spinner, animated
   Help ................. cat face + "?"
   Unavailable .......... cat in a red no-entry sign
   Resize (all 4) ....... cat between resize arrows
   Move ................. cat with four-way arrows
   Precision crosshair .. crosshair with a little cat
-  Handwriting pen ...... pencil with a pink cat eraser
+  Handwriting pen ...... pencil with a cat on the eraser
   Up / alternate ....... up arrow with a cat
 
 MAKE YOUR OWN CURSOR FROM A PICTURE
 -----------------------------------
-Want your own image instead of a cat? In the app:
-  1. Click "Choose picture..." and pick any image (PNG, JPG, etc.)
-  2. Pick which pointer it replaces (or "Every pointer" for all of them)
-  3. Pick the click point (Top-left works like a normal arrow)
+Want your own image instead of a cat? In the app, click
+"Make a cursor from my own picture...":
+  1. Drop a picture on the square (PNG, JPG, etc.) or click it to browse
+  2. Pick the click point (Top-left works like a normal arrow, or choose
+     Custom and click the exact spot on your picture)
+  3. Pick which pointer it replaces (or "All pointers")
   4. Click "Use this picture as my cursor"
-A PNG with a transparent background looks best. "Restore normal
+A PNG with a transparent background looks best. "Restore Windows
 cursors" undoes everything, including your custom ones.
 
 "Windows protected your PC" message?
